@@ -24,6 +24,7 @@ repositories {
 
 dependencies {
     api("org.jspecify:jspecify:1.0.0")
+    implementation(project(":api"))
     compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
     compileOnly(fileTree("libs") { include("*.jar") })
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -53,8 +54,13 @@ tasks {
     shadowJar {
         archiveClassifier.set(null)
         archiveFileName.set("rbw-hook.jar")
-        enableAutoRelocation.set(true)
-        relocationPrefix.set("${project.group}.libs")
-        minimize()
+        // Explicit, not auto relocation: the api package and jspecify must keep their paths for external adapters.
+        // Keep the patterns narrow: a pattern also rewrites our references, and com.google would take the server's Guava.
+        listOf("com.google.gson", "com.google.errorprone", "kotlin", "okhttp3", "okio", "org.jetbrains").forEach {
+            relocate(it, "${project.group}.libs.$it")
+        }
+        minimize {
+            exclude(project(":api"))
+        }
     }
 }

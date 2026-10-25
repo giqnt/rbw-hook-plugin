@@ -6,40 +6,37 @@ import com.andrei1058.bedwars.api.arena.stats.DefaultStatistics;
 import com.andrei1058.bedwars.api.arena.team.ITeamAssigner;
 import com.andrei1058.bedwars.api.configuration.ConfigPath;
 import com.andrei1058.bedwars.api.events.gameplay.GameEndEvent;
+import com.andrei1058.bedwars.api.events.gameplay.GameStateChangeEvent;
 import com.andrei1058.bedwars.api.events.player.PlayerJoinArenaEvent;
 import com.andrei1058.bedwars.api.events.player.PlayerLeaveArenaEvent;
 import com.andrei1058.bedwars.api.events.server.ArenaDisableEvent;
 import com.andrei1058.bedwars.api.events.server.ArenaRestartEvent;
 import com.andrei1058.bedwars.arena.Arena;
 import com.andrei1058.bedwars.arena.team.TeamAssigner;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import dev.giqnt.rbw.hook.HookPlugin;
-import dev.giqnt.rbw.hook.game.GameCreateException;
-import dev.giqnt.rbw.hook.game.HostedGame;
-import dev.giqnt.rbw.hook.game.RankedGame;
+import dev.giqnt.rbw.hook.api.BedWarsAdapter;
+import dev.giqnt.rbw.hook.api.GameCallbacks;
+import dev.giqnt.rbw.hook.api.GameCreateException;
+import dev.giqnt.rbw.hook.api.GameResult;
+import dev.giqnt.rbw.hook.api.MapInfo;
+import dev.giqnt.rbw.hook.api.PlayerResult;
+import dev.giqnt.rbw.hook.api.RankedGame;
+import dev.giqnt.rbw.hook.api.TeamResult;
 import lombok.RequiredArgsConstructor;
-import okhttp3.Response;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.jspecify.annotations.NonNull;
 
-import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 @RequiredArgsConstructor
-public class BedWars1058Adapter implements Adapter, Listener {
-    // 0, 2, 4, ..., 32s, then every 60s: about 10 minutes, to outlast a slow api deploy.
-    private static final int REPORT_ATTEMPTS = 15;
-    private static final long REPORT_MAX_DELAY_TICKS = 20 * 60;
-    private final HookPlugin plugin;
-    /** Arena name to its ranked game. */
+public class BedWars1058Adapter implements BedWarsAdapter, Listener {
+    private final String groupPrefix;
+    /**
+     * Arena name to its ranked game. A session is removed before any end callback: the arena still fires leave and
+     * restart events for it afterwards, which would otherwise call back a second time.
+     */
     private final Map<String, ArenaSession> sessions = new HashMap<>();
-    /** Game id to map name, for ended games whose result is still being reported. */
-    private final ConcurrentMap<String, String> pendingResults = new ConcurrentHashMap<>();
     private final ITeamAssigner teamAssigner = arena -> {
         final ArenaSession session = sessions.get(arena.getArenaName());
         if (session == null) {
@@ -55,7 +52,6 @@ public class BedWars1058Adapter implements Adapter, Listener {
     @Override
     public Collection<MapInfo> getMaps() {
         final Set<MapInfo> maps = new HashSet<>();
-        final String groupPrefix = plugin.getConfigHolder().groupPrefix();
         for (final var arena : Arena.getArenas()) {
             final String group = arena.getGroup();
             if (!group.startsWith(groupPrefix)) continue;
@@ -76,9 +72,9 @@ public class BedWars1058Adapter implements Adapter, Listener {
     }
 
     @Override
-    public @NonNull String createGame(@NonNull final RankedGame game) {
+    public String startGame(final RankedGame game, final GameCallbacks callbacks) {
         final IArena arena = pickArena(game);
-        final var session = new ArenaSession(game, arena.getDisplayName());
+        final var session = new ArenaSession(game, arena.getDisplayName(), callbacks);
         sessions.put(arena.getArenaName(), session);
         try {
             arena.setTeamAssigner(teamAssigner);
@@ -112,7 +108,7 @@ public class BedWars1058Adapter implements Adapter, Listener {
 
         final Map<String, List<IArena>> mapToArenas = new HashMap<>();
         for (final IArena arena : Arena.getArenas()) {
-            if (!arena.getGroup().startsWith(plugin.getConfigHolder().groupPrefix())
+            if (!arena.getGroup().startsWith(groupPrefix)
                     || arena.getStatus() != GameState.waiting
                     || !arena.getPlayers().isEmpty()
                     || arena.getMaxPlayers() < teamCount * teamSize
@@ -138,37 +134,9 @@ public class BedWars1058Adapter implements Adapter, Listener {
         return true;
     }
 
-    /** For a game createGame already returned, so only this report tells the api it failed. */
-    private void abort(final IArena arena, final ArenaSession session, final String reason) {
+    private void abandon(final IArena arena, final ArenaSession session, final String reason) {
         if (!discard(arena, session)) return;
-        final JsonObject data = new JsonObject();
-        data.addProperty("message", reason);
-        data.addProperty("mapName", arena.getDisplayName());
-        postUntilAccepted("/server-games/" + session.game().id() + "/start-failure", plugin.getGson().toJson(data), () -> {}, 0);
-    }
-
-    // The api ignores a repeated report, so retrying is safe; this covers api restarts during a deploy.
-    private void postUntilAccepted(final String endpoint, final String body, final Runnable done, final int attempt) {
-        if (!plugin.isEnabled()) return;
-        Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
-            try {
-                final int code = plugin.getApi().request(endpoint, "POST", body, Response::code);
-                if (code < 500) {
-                    if (code >= 300) plugin.getLogger().warning("POST " + endpoint + " rejected: " + code);
-                    done.run();
-                    return;
-                }
-                plugin.getLogger().warning("POST " + endpoint + " failed: " + code);
-            } catch (IOException e) {
-                plugin.getLogger().warning("POST " + endpoint + " failed: " + e.getMessage());
-            }
-            if (attempt + 1 < REPORT_ATTEMPTS) {
-                postUntilAccepted(endpoint, body, done, attempt + 1);
-            } else {
-                plugin.getLogger().severe("Giving up POST " + endpoint);
-                done.run();
-            }
-        }, attempt == 0 ? 0 : Math.min(20L << attempt, REPORT_MAX_DELAY_TICKS));
+        session.callbacks().abandoned(reason);
     }
 
     @EventHandler
@@ -180,7 +148,7 @@ public class BedWars1058Adapter implements Adapter, Listener {
         }
         final ArenaSession session = sessions.get(arena.getArenaName());
         if (session == null) return;
-        abort(arena, session, String.format("Player `%s` left the game", event.getPlayer().getName()));
+        abandon(arena, session, String.format("Player `%s` left the game", event.getPlayer().getName()));
     }
 
     @EventHandler
@@ -194,41 +162,33 @@ public class BedWars1058Adapter implements Adapter, Listener {
         if (session == null) {
             return;
         }
-        final RankedGame rankedGame = session.game();
         if (arena.getStatsHolder() == null) {
+            session.callbacks().abandoned("Arena " + arenaName + " has no statistics");
             return;
         }
-        JsonArray teamsData = new JsonArray();
         final UUID winningTeamId = event.getTeamWinner().getIdentity();
+        final List<TeamResult> teams = new ArrayList<>();
         arena.getTeams().forEach(team -> {
-            final JsonArray playersData = new JsonArray();
+            final List<PlayerResult> players = new ArrayList<>();
             //noinspection deprecation
             team.getMembersCache().forEach(member -> {
-                JsonObject playerData = new JsonObject();
-                playerData.addProperty("name", member.getName());
-                playerData.addProperty("uuid", member.getUniqueId().toString());
-                arena.getStatsHolder().get(member.getUniqueId()).ifPresentOrElse(stats -> {
-                    stats.getStatistic(DefaultStatistics.KILLS)
-                            .ifPresent(stat -> playerData.addProperty("kills", (int) stat.getValue()));
-                    stats.getStatistic(DefaultStatistics.BEDS_DESTROYED)
-                            .ifPresent(stat -> playerData.addProperty("bedsBroken", (int) stat.getValue()));
-                }, () -> {
-                    playerData.addProperty("kills", 0);
-                    playerData.addProperty("bedsBroken", 0);
-                });
-                playersData.add(playerData);
+                final var stats = arena.getStatsHolder().get(member.getUniqueId());
+                final int kills = stats.flatMap(s -> s.getStatistic(DefaultStatistics.KILLS))
+                        .map(stat -> (int) stat.getValue()).orElse(0);
+                final int bedsBroken = stats.flatMap(s -> s.getStatistic(DefaultStatistics.BEDS_DESTROYED))
+                        .map(stat -> (int) stat.getValue()).orElse(0);
+                players.add(new PlayerResult(member.getUniqueId(), member.getName(), kills, bedsBroken));
             });
-            final JsonObject teamData = new JsonObject();
-            teamData.addProperty("win", team.getIdentity().equals(winningTeamId));
-            teamData.add("players", playersData);
-            teamsData.add(teamData);
+            teams.add(new TeamResult(team.getIdentity().equals(winningTeamId), players));
         });
-        final JsonObject data = new JsonObject();
-        data.add("teams", teamsData);
+        session.callbacks().ended(new GameResult(teams));
+    }
 
-        pendingResults.put(rankedGame.id(), session.mapName());
-        postUntilAccepted("/server-games/" + rankedGame.id() + "/result", plugin.getGson().toJson(data),
-                () -> pendingResults.remove(rankedGame.id()), 0);
+    @EventHandler
+    public void onGameStateChange(final GameStateChangeEvent event) {
+        if (event.getArena() == null || event.getNewState() != GameState.playing) return;
+        final ArenaSession session = sessions.get(event.getArena().getArenaName());
+        if (session != null) session.callbacks().started();
     }
 
     // An arena can restart without GameEndEvent, e.g. a draw when the game timer runs out.
@@ -246,24 +206,14 @@ public class BedWars1058Adapter implements Adapter, Listener {
     private void dropSession(final String arenaName) {
         final ArenaSession session = sessions.remove(arenaName);
         if (session == null) return;
-        plugin.getLogger().warning("Dropping game #" + session.game().id() + ": arena " + arenaName
-                + " closed without a result");
-    }
-
-    @Override
-    public Collection<HostedGame> getGames() {
-        final List<HostedGame> games = new ArrayList<>();
-        sessions.values().forEach(session ->
-                games.add(new HostedGame(session.game().id(), HostedGame.State.STARTED, session.mapName())));
-        pendingResults.forEach((id, mapName) -> games.add(new HostedGame(id, HostedGame.State.ENDED, mapName)));
-        return games;
+        session.callbacks().abandoned("Arena " + arenaName + " closed without a result");
     }
 
     @EventHandler
     public void onArenaJoin(final PlayerJoinArenaEvent event) {
         if (event.isSpectator()) return;
         final var arena = event.getArena();
-        if (arena == null || !arena.getGroup().startsWith(plugin.getConfigHolder().groupPrefix())) {
+        if (arena == null || !arena.getGroup().startsWith(groupPrefix)) {
             return;
         }
         final ArenaSession session = sessions.get(arena.getArenaName());
@@ -272,6 +222,6 @@ public class BedWars1058Adapter implements Adapter, Listener {
         }
     }
 
-    private record ArenaSession(RankedGame game, String mapName) {
+    private record ArenaSession(RankedGame game, String mapName, GameCallbacks callbacks) {
     }
 }

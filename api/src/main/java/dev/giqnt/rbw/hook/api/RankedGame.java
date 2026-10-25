@@ -1,4 +1,4 @@
-package dev.giqnt.rbw.hook.game;
+package dev.giqnt.rbw.hook.api;
 
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
