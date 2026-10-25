@@ -105,6 +105,7 @@ public class HookPlugin extends JavaPlugin {
 
     /** Main thread only. */
     public void updateMaps() {
+        if (!this.bedWars.canHostGames()) return;
         final var maps = this.bedWars.getMaps();
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
