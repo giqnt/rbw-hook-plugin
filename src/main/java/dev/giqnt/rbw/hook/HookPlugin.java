@@ -1,7 +1,7 @@
 package dev.giqnt.rbw.hook;
 
 import com.google.gson.Gson;
-import dev.giqnt.rbw.hook.adapter.AdapterFactory;
+import dev.giqnt.rbw.hook.adapter.AdapterSelector;
 import dev.giqnt.rbw.hook.game.GameManager;
 import dev.giqnt.rbw.hook.leaderboard.LeaderboardManager;
 import dev.giqnt.rbw.hook.placeholder.RBWPlaceholderExpansion;
@@ -58,8 +58,8 @@ public class HookPlugin extends JavaPlugin {
         );
         this.leaderboardManager = new LeaderboardManager(this);
         this.playerProfileManager = new PlayerProfileManager(this);
-        final var adapter = AdapterFactory.getAdapter(this);
-        this.gameManager = new GameManager(this, adapter);
+        this.gameManager = new GameManager(this);
+        new AdapterSelector(this).init();
         this.webSocketManager = new WebSocketManager(this);
 
         webSocketManager.connect();
@@ -69,9 +69,6 @@ public class HookPlugin extends JavaPlugin {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             this.placeholderExpansion = new RBWPlaceholderExpansion(this);
             this.placeholderExpansion.register();
-        }
-        if (adapter != null) {
-            Bukkit.getPluginManager().registerEvents(adapter, this);
         }
         Bukkit.getScheduler().runTaskTimer(this, this::updateMaps, 20 * 30, 20 * 30);
     }

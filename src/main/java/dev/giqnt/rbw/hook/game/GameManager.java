@@ -35,7 +35,7 @@ public class GameManager {
     private static final int REPORT_ATTEMPTS = 15;
     private static final long REPORT_MAX_DELAY_TICKS = 20 * 60;
     private final HookPlugin plugin;
-    private final @Nullable BedWarsAdapter adapter;
+    private @Nullable BedWarsAdapter adapter;
     /** Game id to its game, from just before startGame until its end callback. */
     private final Map<String, ActiveGame> activeGames = new HashMap<>();
     /**
@@ -44,8 +44,17 @@ public class GameManager {
      */
     private final ConcurrentMap<String, String> pendingResults = new ConcurrentHashMap<>();
 
-    public GameManager(final HookPlugin plugin, final @Nullable BedWarsAdapter adapter) {
+    public GameManager(final HookPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /**
+     * Games in progress are abandoned: the old adapter's callbacks no longer reach them, so they could never end
+     * and the api would never void them. Ended games keep reporting their results.
+     */
+    public void setAdapter(final @Nullable BedWarsAdapter adapter) {
+        if (adapter == this.adapter) return;
+        List.copyOf(activeGames.values()).forEach(game -> game.abandoned("The server's BedWars adapter changed"));
         this.adapter = adapter;
     }
 

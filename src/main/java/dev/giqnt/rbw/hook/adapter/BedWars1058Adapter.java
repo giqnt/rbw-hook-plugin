@@ -134,6 +134,21 @@ public class BedWars1058Adapter implements BedWarsAdapter, Listener {
         return true;
     }
 
+    /**
+     * For rbw-hook when another adapter takes over: a session left behind would let its old players into the arena
+     * once this adapter is selected again. Games in progress go on unranked.
+     */
+    public void clearSessions() {
+        new HashMap<>(sessions).forEach((arenaName, session) -> {
+            final IArena arena = Arena.getArenaByName(arenaName);
+            if (arena != null && (arena.getStatus() == GameState.waiting || arena.getStatus() == GameState.starting)) {
+                discard(arena, session);
+            } else {
+                sessions.remove(arenaName, session);
+            }
+        });
+    }
+
     private void abandon(final IArena arena, final ArenaSession session, final String reason) {
         if (!discard(arena, session)) return;
         session.callbacks().abandoned(reason);
