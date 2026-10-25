@@ -1,9 +1,12 @@
 plugins {
     `java-library`
+    `maven-publish`
 }
 
-group = rootProject.group
-version = rootProject.version
+// JitPack serves the coordinates it was asked for, and with a custom install it only promises VERSION and GROUP.
+val jitpack = providers.environmentVariable("JITPACK").isPresent
+group = if (jitpack) providers.environmentVariable("GROUP").get() else rootProject.group
+version = if (jitpack) providers.environmentVariable("VERSION").get() else rootProject.version
 
 repositories {
     mavenCentral()
@@ -21,5 +24,14 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            artifactId = "rbw-hook-api"
+            from(components["java"])
+        }
     }
 }
