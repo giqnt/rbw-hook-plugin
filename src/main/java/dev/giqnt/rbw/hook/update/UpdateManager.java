@@ -33,7 +33,7 @@ import java.util.logging.Level;
  */
 @RequiredArgsConstructor
 public class UpdateManager {
-    private static final String LATEST_RELEASE = "https://api.github.com/repos/Team-GIQNT/rbw-hook-plugin/releases/latest";
+    private static final String LATEST_RELEASE = "https://api.github.com/repos/giqnt/rbw-hook-plugin/releases/latest";
     private static final String JAR_ASSET = "rbw-hook.jar";
     private static final String CHECKSUM_ASSET = JAR_ASSET + ".sha256";
     // Unauthenticated GitHub API calls are limited to 60 an hour per IP, shared with anything else on the host.
