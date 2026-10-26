@@ -14,7 +14,7 @@ public interface BedWarsAdapter {
 
     /**
      * Puts the players into an arena and returns its map name as soon as the countdown begins.
-     * The name is one of {@link RankedGame#mapNames()} if given, otherwise one from {@link #getMaps()}.
+     * The name is never null and is one of {@link RankedGame#mapNames()} if given, otherwise one from {@link #getMaps()}.
      * Throws {@link GameCreateException}, with the chosen map name if there is one, when the game can't start.
      * Must not call an end callback before returning, and must not throw after calling {@link GameCallbacks#started()}.
      */

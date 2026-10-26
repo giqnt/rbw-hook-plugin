@@ -1,6 +1,5 @@
 package dev.giqnt.rbw.hook.game;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.giqnt.rbw.hook.HookPlugin;
 import dev.giqnt.rbw.hook.api.BedWarsAdapter;
@@ -89,6 +88,11 @@ public class GameManager {
         final String mapName;
         try {
             mapName = adapter.startGame(game, active);
+            // A null name would read as "startGame has not returned" to the callbacks and lose the game silently.
+            if (mapName == null) {
+                plugin.getLogger().severe(adapter.getClass().getName() + " returned no map name for game #" + game.id());
+                throw new GameCreateException("The BedWars adapter returned no map name");
+            }
         } catch (Throwable ex) {
             activeGames.remove(game.id(), active);
             if (active.state == State.PLAYING) {
@@ -112,26 +116,8 @@ public class GameManager {
     }
 
     private void reportResult(final String id, final String mapName, final GameResult result) {
-        final JsonArray teamsData = new JsonArray();
-        for (final TeamResult team : result.teams()) {
-            final JsonArray playersData = new JsonArray();
-            for (final PlayerResult player : team.players()) {
-                final JsonObject playerData = new JsonObject();
-                playerData.addProperty("name", player.name());
-                playerData.addProperty("uuid", player.uuid().toString());
-                playerData.addProperty("kills", player.kills());
-                playerData.addProperty("bedsBroken", player.bedsBroken());
-                playersData.add(playerData);
-            }
-            final JsonObject teamData = new JsonObject();
-            teamData.addProperty("win", team.win());
-            teamData.add("players", playersData);
-            teamsData.add(teamData);
-        }
-        final JsonObject data = new JsonObject();
-        data.add("teams", teamsData);
         pendingResults.put(id, mapName);
-        postUntilAccepted("/server-games/" + id + "/result", plugin.getGson().toJson(data),
+        postUntilAccepted("/server-games/" + id + "/result", plugin.getGson().toJson(result),
                 () -> pendingResults.remove(id), 0);
     }
 
