@@ -10,7 +10,7 @@ The classes are in `dev.giqnt.rbw.hook.api`.
 
 ## Dependency
 
-The API is published through [JitPack](https://jitpack.io/#giqnt/rbw-hook-plugin) from v2.2.0 on. Earlier versions on
+The API is published through [JitPack](https://jitpack.io/#giqnt/rbw-hook-plugin) from v2.1.0 on. Earlier versions on
 the same coordinate (such as `v2.0.0`) are builds of the whole plugin, not the API.
 
 Gradle (Kotlin DSL):
@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.21.4-R0.1-SNAPSHOT")
-    compileOnly("com.github.giqnt:rbw-hook-plugin:v2.2.0")
+    compileOnly("com.github.giqnt:rbw-hook-plugin:v2.1.0")
 }
 ```
 
@@ -39,7 +39,7 @@ Maven:
 <dependency>
     <groupId>com.github.giqnt</groupId>
     <artifactId>rbw-hook-plugin</artifactId>
-    <version>v2.2.0</version>
+    <version>v2.1.0</version>
     <scope>provided</scope>
 </dependency>
 ```
