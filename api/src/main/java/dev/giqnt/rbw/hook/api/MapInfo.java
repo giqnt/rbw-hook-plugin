@@ -1,9 +1,14 @@
-package dev.giqnt.rbw.hook.adapter;
+package dev.giqnt.rbw.hook.api;
 
 import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
+/**
+ * A map a server can host. {@code category} is the queue's map category and {@code name} is what game.create picks
+ * from. {@code buildHeight}, the highest buildable Y, is optional and shown to players. Two maps are the same if their
+ * category and name match.
+ */
 public record MapInfo(
         String category,
         String name,

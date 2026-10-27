@@ -1,8 +1,8 @@
 package dev.giqnt.rbw.hook;
 
 import com.google.gson.Gson;
-import dev.giqnt.rbw.hook.adapter.Adapter;
-import dev.giqnt.rbw.hook.adapter.AdapterFactory;
+import dev.giqnt.rbw.hook.adapter.AdapterSelector;
+import dev.giqnt.rbw.hook.game.GameManager;
 import dev.giqnt.rbw.hook.leaderboard.LeaderboardManager;
 import dev.giqnt.rbw.hook.placeholder.RBWPlaceholderExpansion;
 import dev.giqnt.rbw.hook.profile.PlayerProfileManager;
@@ -13,7 +13,6 @@ import lombok.Getter;
 import okhttp3.HttpUrl;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -34,7 +33,7 @@ public class HookPlugin extends JavaPlugin {
     @Getter
     private PlayerProfileManager playerProfileManager;
     @Getter
-    private Adapter bedWars;
+    private GameManager gameManager;
     private RBWPlaceholderExpansion placeholderExpansion;
 
     @Override
@@ -59,7 +58,8 @@ public class HookPlugin extends JavaPlugin {
         );
         this.leaderboardManager = new LeaderboardManager(this);
         this.playerProfileManager = new PlayerProfileManager(this);
-        this.bedWars = AdapterFactory.getAdapter(this);
+        this.gameManager = new GameManager(this);
+        new AdapterSelector(this).init();
         this.webSocketManager = new WebSocketManager(this);
 
         webSocketManager.connect();
@@ -69,9 +69,6 @@ public class HookPlugin extends JavaPlugin {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             this.placeholderExpansion = new RBWPlaceholderExpansion(this);
             this.placeholderExpansion.register();
-        }
-        if (this.bedWars instanceof Listener adapter) {
-            Bukkit.getPluginManager().registerEvents(adapter, this);
         }
         Bukkit.getScheduler().runTaskTimer(this, this::updateMaps, 20 * 30, 20 * 30);
     }
@@ -105,8 +102,9 @@ public class HookPlugin extends JavaPlugin {
 
     /** Main thread only. */
     public void updateMaps() {
-        if (!this.bedWars.canHostGames()) return;
-        final var maps = this.bedWars.getMaps();
+        // PUT /maps replaces the tenant's maps, so an empty list from a lobby would wipe every game server's maps.
+        if (!this.gameManager.canHostGames()) return;
+        final var maps = this.gameManager.getMaps();
         Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
             try {
                 this.api.request("/maps", "PUT", gson.toJson(maps));

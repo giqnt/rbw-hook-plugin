@@ -14,7 +14,7 @@ public class PlayerStateGetRequestHandler extends MessageHandler {
         final var plugin = context.plugin();
         final var data = plugin.getGson().fromJson(context.data(), PlayerStateGetRequestData.class);
         final Player player = plugin.getServer().getPlayer(data.uuid());
-        boolean isReady = player != null && context.plugin().getBedWars().isReady(player);
+        boolean isReady = player != null && plugin.getGameManager().isReady(player);
         final JsonObject responseData = new JsonObject();
         responseData.addProperty("ready", isReady);
         context.messageReplier().accept(responseData);

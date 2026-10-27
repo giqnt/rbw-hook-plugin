@@ -11,7 +11,7 @@ public class GameListRequestHandler extends MessageHandler {
     public void execute(@NonNull final MessageHandlerContext context) {
         final var plugin = context.plugin();
         final JsonObject responseData = new JsonObject();
-        responseData.add("games", plugin.getGson().toJsonTree(plugin.getBedWars().getGames()));
+        responseData.add("games", plugin.getGson().toJsonTree(plugin.getGameManager().getGames()));
         context.messageReplier().accept(responseData);
     }
 }

@@ -2,8 +2,8 @@ package dev.giqnt.rbw.hook.websocket.handlers;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import dev.giqnt.rbw.hook.game.GameCreateException;
-import dev.giqnt.rbw.hook.game.RankedGame;
+import dev.giqnt.rbw.hook.api.GameCreateException;
+import dev.giqnt.rbw.hook.api.RankedGame;
 import dev.giqnt.rbw.hook.websocket.MessageHandler;
 import dev.giqnt.rbw.hook.websocket.MessageHandlerContext;
 import org.bukkit.entity.Player;
@@ -22,7 +22,8 @@ public class GameCreateRequestHandler extends MessageHandler {
     @Override
     public void execute(@NonNull final MessageHandlerContext context) {
         final var plugin = context.plugin();
-        if (!plugin.getBedWars().canHostGames()) {
+        final var games = plugin.getGameManager();
+        if (!games.canHostGames()) {
             final JsonObject responseData = new JsonObject();
             responseData.addProperty("success", false);
             responseData.addProperty("unsupported", true);
@@ -33,7 +34,7 @@ public class GameCreateRequestHandler extends MessageHandler {
         try {
             final var data = plugin.getGson().fromJson(context.data(), GameCreateRequestData.class);
             // A repeated game.create for the same id must get the same result as the first one.
-            final var existing = plugin.getBedWars().getGames().stream()
+            final var existing = games.getGames().stream()
                     .filter(game -> game.id().equals(data.id()))
                     .findFirst();
             if (existing.isPresent()) {
@@ -47,7 +48,7 @@ public class GameCreateRequestHandler extends MessageHandler {
                     .map(team -> team.members()
                             .stream().map(member -> {
                                 final Player player = plugin.getServer().getPlayer(member.uuid());
-                                if (player == null || !player.isOnline() || !plugin.getBedWars().isReady(player)) {
+                                if (player == null || !player.isOnline() || !games.isReady(player)) {
                                     missingPlayers.add(member);
                                     return null;
                                 }
@@ -64,7 +65,7 @@ public class GameCreateRequestHandler extends MessageHandler {
                     .flatMap(Collection::stream)
                     .collect(Collectors.toUnmodifiableSet());
             plugin.getLogger().info("Creating game " + data.id());
-            final String mapName = plugin.getBedWars().createGame(new RankedGame(data.id(), data.mapNames(), players, teamPlayers));
+            final String mapName = games.startGame(new RankedGame(data.id(), data.mapNames(), players, teamPlayers));
             plugin.getLogger().info("Successfully created game " + data.id() + " on map " + mapName);
             sendGameCreateSuccess(context, mapName);
         } catch (GameCreateException e) {
