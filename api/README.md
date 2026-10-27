@@ -82,6 +82,8 @@ public void onEnable() {
 - rbw-hook uses the registered adapter with the highest priority. Its built-in BedWars1058 adapter is registered at
   `Lowest`, so `Normal` replaces it. If several share the highest priority, rbw-hook uses the one Bukkit picks and
   logs a warning.
+- The RBW web panel shows, per game server token, the name and version of the plugin that registered the adapter in use
+  (the `plugin` argument above).
 - When the adapter in use changes (yours is registered or unregistered), rbw-hook abandons every game the previous
   adapter had in progress. Later callbacks for those games are ignored. Ending those arenas is up to your plugin.
 - If rbw-hook is reloaded, reload your plugin too. Your plugin still holds the old `BedWarsAdapter` class, which the

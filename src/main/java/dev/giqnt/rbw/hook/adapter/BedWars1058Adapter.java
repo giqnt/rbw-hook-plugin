@@ -1,5 +1,6 @@
 package dev.giqnt.rbw.hook.adapter;
 
+import com.andrei1058.bedwars.BedWars;
 import com.andrei1058.bedwars.api.arena.GameState;
 import com.andrei1058.bedwars.api.arena.IArena;
 import com.andrei1058.bedwars.api.arena.stats.DefaultStatistics;
@@ -25,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
@@ -48,6 +51,10 @@ public class BedWars1058Adapter implements BedWarsAdapter, Listener {
             arena.getTeams().get(i).addPlayers(teams.get(i).toArray(new Player[0]));
         }
     };
+
+    public Plugin bedWarsPlugin() {
+        return JavaPlugin.getProvidingPlugin(BedWars.class);
+    }
 
     @Override
     public Collection<MapInfo> getMaps() {

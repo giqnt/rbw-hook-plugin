@@ -8,7 +8,6 @@ import dev.giqnt.rbw.hook.websocket.handlers.GameCreateRequestHandler;
 import dev.giqnt.rbw.hook.websocket.handlers.GameListRequestHandler;
 import dev.giqnt.rbw.hook.websocket.handlers.PlayerMessageSendRequestHandler;
 import dev.giqnt.rbw.hook.websocket.handlers.PlayerStateGetRequestHandler;
-import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
@@ -19,7 +18,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -32,7 +30,6 @@ import java.util.logging.Level;
 public class WebSocketManager implements Listener {
     private static final Duration RECONNECT_DELAY = Duration.ofSeconds(5);
     private final HookPlugin plugin;
-    private final URI uri;
     private final ScheduledExecutorService reconnectScheduler = Executors.newSingleThreadScheduledExecutor();
     private final ExecutorService senderExecutor = Executors.newSingleThreadExecutor();
     private final BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
@@ -47,7 +44,6 @@ public class WebSocketManager implements Listener {
 
     public WebSocketManager(final HookPlugin plugin) {
         this.plugin = plugin;
-        this.uri = URI.create(plugin.getApi().webSocketUrl("/ws/gameserver"));
         startMessageDispatcher();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
@@ -58,11 +54,7 @@ public class WebSocketManager implements Listener {
     }
 
     private void doConnect() {
-        final Request request = new Request.Builder()
-                .url(uri.toString())
-                .addHeader("Authorization", "Bearer " + plugin.getConfigHolder().token())
-                .build();
-        this.webSocket = plugin.getApi().newWebSocket(request, new InternalWebSocketListener());
+        this.webSocket = plugin.getApi().newWebSocket("/ws/gameserver", new InternalWebSocketListener());
         plugin.getLogger().log(Level.INFO, "[ws] Connecting...");
     }
 

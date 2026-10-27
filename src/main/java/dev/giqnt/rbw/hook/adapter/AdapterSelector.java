@@ -8,6 +8,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.ServiceRegisterEvent;
 import org.bukkit.event.server.ServiceUnregisterEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.jspecify.annotations.Nullable;
@@ -63,6 +64,7 @@ public class AdapterSelector implements Listener {
         if (selected == builtIn && builtIn != null) HandlerList.unregisterAll(builtIn);
         if (next == builtIn && builtIn != null) Bukkit.getPluginManager().registerEvents(builtIn, plugin);
         selected = next;
+        plugin.getApi().setAdapter(registration == null ? null : reportedPlugin(registration));
         if (registration == null) {
             plugin.getLogger().info("BedWars adapter unregistered, this server can't host games");
         } else {
@@ -83,6 +85,18 @@ public class AdapterSelector implements Listener {
     private static String describe(final RegisteredServiceProvider<BedWarsAdapter> registration) {
         return registration.getProvider().getClass().getName() + " from " + registration.getPlugin().getName()
                 + " (" + registration.getPriority() + ")";
+    }
+
+    /** {@code <name>/<version>} of the BedWars plugin behind the adapter, for the panel. */
+    private String reportedPlugin(final RegisteredServiceProvider<BedWarsAdapter> registration) {
+        // The built-in adapter is registered by this plugin, but the panel wants the BedWars plugin it drives.
+        final Plugin bedWars = builtIn != null && registration.getProvider() == builtIn
+                ? builtIn.bedWarsPlugin()
+                : registration.getPlugin();
+        final String value = bedWars.getName() + "/" + bedWars.getDescription().getVersion();
+        // OkHttp throws on a header value outside printable ASCII, and the api drops anything longer than 128.
+        final String ascii = value.replaceAll("[^\\x20-\\x7e]", "?");
+        return ascii.length() > 128 ? ascii.substring(0, 128) : ascii;
     }
 
     private static boolean isClassLoaded(final String className) {

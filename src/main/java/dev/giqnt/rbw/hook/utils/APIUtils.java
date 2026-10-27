@@ -15,6 +15,7 @@ public class APIUtils {
     private final String apiUrl;
     private final String token;
     private final OkHttpClient client;
+    private volatile @Nullable String adapter;
 
     public APIUtils(
             final String apiUrl,
@@ -55,9 +56,14 @@ public class APIUtils {
         return client;
     }
 
+    /** Main thread writes it, request threads read it. */
+    public void setAdapter(@Nullable final String adapter) {
+        this.adapter = adapter;
+    }
+
     @NonNull
-    public WebSocket newWebSocket(@NonNull final Request request, @NonNull final WebSocketListener listener) {
-        return client.newWebSocket(request, listener);
+    public WebSocket newWebSocket(@NonNull final String endpoint, @NonNull final WebSocketListener listener) {
+        return client.newWebSocket(apiRequest(apiUrl.replaceFirst("^http", "ws") + endpoint).build(), listener);
     }
 
     @NonNull
@@ -82,9 +88,7 @@ public class APIUtils {
             @Nullable final String body,
             @NonNull final ResponseHandler<T> handler
     ) throws IOException {
-        final Request request = new Request.Builder()
-                .url(apiUrl + (endpoint.startsWith("/") ? endpoint : "/" + endpoint))
-                .addHeader("Authorization", "Bearer " + token)
+        final Request request = apiRequest(apiUrl + (endpoint.startsWith("/") ? endpoint : "/" + endpoint))
                 .addHeader("Content-Type", "application/json")
                 .method(method, body == null ? null : RequestBody.create(body, JSON))
                 .build();
@@ -93,9 +97,11 @@ public class APIUtils {
         }
     }
 
-    @NonNull
-    public String webSocketUrl(@NonNull final String endpoint) {
-        return apiUrl.replaceFirst("^http", "ws") + endpoint;
+    private Request.Builder apiRequest(final String url) {
+        final Request.Builder builder = new Request.Builder().url(url).addHeader("Authorization", "Bearer " + token);
+        final String adapter = this.adapter;
+        if (adapter != null) builder.addHeader("X-RBW-Adapter", adapter);
+        return builder;
     }
 
     @FunctionalInterface
