@@ -89,6 +89,22 @@ public void onEnable() {
 - If rbw-hook is reloaded, reload your plugin too. Your plugin still holds the old `BedWarsAdapter` class, which the
   new rbw-hook doesn't recognize.
 
+### Optional dependency
+
+If your plugin should also run on servers without rbw-hook, use `softdepend: [rbw-hook]` (with `paper-plugin.yml`,
+add `required: false` next to `load: BEFORE`) and register only when rbw-hook is enabled. Keep every reference to
+`dev.giqnt.rbw.hook.api` in classes that are loaded after that check, or your plugin fails with
+`NoClassDefFoundError` on servers without rbw-hook:
+
+```java
+@Override
+public void onEnable() {
+    if (getServer().getPluginManager().isPluginEnabled("rbw-hook")) {
+        RbwHookSupport.register(this); // the only class that uses the API
+    }
+}
+```
+
 ## Implementing `BedWarsAdapter`
 
 rbw-hook calls every method on the main thread.
